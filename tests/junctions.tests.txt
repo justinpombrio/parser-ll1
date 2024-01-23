@@ -1,0 +1,67 @@
+### And ###
+Parser     > "a" "b" and
+Input      > a b
+Expect Ok  > (and a b)
+
+Parser     > "a" "a" and
+Input      > aa
+Expect Ok  > (and a a)
+
+
+### Preceded, terminated ###
+Parser     > "a" "(" preceded ")" terminated
+Input      > (a)
+Expect Ok  > a
+
+
+### Tuples ###
+Parser     > "a" "b" tuple2 "c" "d" "e" tuple2 tuple3
+Input      > a b c d e
+Expect Ok  > (tuple (tuple a b) c (tuple d e))
+
+
+### Choice ###
+
+Parser     > "a" "b" choice2 "c" "d" "e" choice2 choice3
+Input      > a
+Expect Ok  > a
+Input      > b
+Expect Ok  > b
+Input      > c
+Expect Ok  > c
+Input      > d
+Expect Ok  > d
+Input      > e
+Expect Ok  > e
+
+### LL1 Violations ###
+
+Parser     > "a" "b" "a" choice3
+Input      >
+Expect Err > ambiguous grammar: in choice, token 'a' could start either 'a' or 'a'
+
+Parser     > "a" opt "b" opt choice2
+Input      >
+Expect Err > ambiguous grammar: in choice, either 'a'.opt() or 'b'.opt() could be empty
+
+Parser
+  > "["
+  >     "a" "b" choice2 opt
+  >     "," opt
+  >     "b" "c" choice2 opt
+  > "]"
+  > tuple5
+Input >
+Expect Err
+> ambiguous grammar: in tuple, token 'b' could either continue choice.opt() or start choice.opt()
+
+Parser
+  > "["
+  >     "a" "b" choice2 opt
+  >     ","
+  >     "b" "c" choice2 opt
+  > "]"
+  > tuple5
+Input > [b,b]
+Expect Ok
+> (tuple [ b , b ])

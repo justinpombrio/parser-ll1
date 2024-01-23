@@ -1,0 +1,116 @@
+### Empty ###
+Parser > empty
+
+Input     >
+Expect Ok > ()
+
+Input     >    
+Expect Ok > ()
+
+Input
+>
+>
+>
+Expect Ok > ()
+
+Input > xyz
+Expect Err
+> parse error: did not expect 'xyz'
+>  --> lexing.tests.txt:1:1
+>   |
+> 1 |xyz
+>   |^^^ unexpected
+>   |
+
+Input
+>      
+>   .  
+>      
+Expect Err
+> parse error: did not expect '.'
+>  --> lexing.tests.txt:2:3
+>   |
+> 2 |  .  
+>   |  ^ unexpected
+>   |
+
+### String ###
+Parser > "xyz"
+
+Input     > xyz
+Expect Ok > xyz
+
+Input     >   xyz  
+Expect Ok > xyz
+
+Input
+>
+> xyz  
+>
+Expect Ok > xyz
+
+Input     > xyzabc
+Expect Err
+> parse error: did not expect 'abc'
+>  --> lexing.tests.txt:1:4
+>   |
+> 1 |xyzabc
+>   |   ^^^ unexpected
+>   |
+
+Input
+>
+> abcxyz
+Expect Err
+> parse error: expected 'xyz' but found 'abcxyz'
+>  --> lexing.tests.txt:2:1
+>   |
+> 2 |abcxyz
+>   |^^^^^^ expected 'xyz'
+>   |
+
+### Regex ###
+Parser > id/[a-z]+/
+
+Input  >
+Expect Err
+> parse error: expected id but found end of file
+>  --> lexing.tests.txt:1:1
+>   |
+> 1 |
+>   |^ expected id
+>   |
+
+Input > abc
+Expect Ok > abc
+
+Input
+>    
+>    abc    
+Expect Ok > abc
+
+Input >  abc def
+Expect Err
+> parse error: did not expect id
+>  --> lexing.tests.txt:1:6
+>   |
+> 1 | abc def
+>   |     ^^^ unexpected
+>   |
+
+Input > abc!!
+Expect Err
+> parse error: did not expect '!!'
+>  --> lexing.tests.txt:1:4
+>   |
+> 1 |abc!!
+>   |   ^^ unexpected
+>   |
+
+### Invalid Regex ###
+Parser > id/[[[abc/
+Expect Err
+> regex parse error:
+>     [[[abc
+>       ^
+> error: unclosed character class

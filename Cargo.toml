@@ -1,0 +1,13 @@
+[package]
+name = "parser-ll1"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+regex = "1.10"
+dyn-clone = "1.0"
+colored = "2.1"
+no-nonsense-flamegraphs = { git = "https://github.com/justinpombrio/no-nonsense-flamegraphs.git", optional = true }
+
+[features]
+flamegraphs = ["dep:no-nonsense-flamegraphs"]

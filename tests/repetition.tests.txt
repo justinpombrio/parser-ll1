@@ -1,0 +1,229 @@
+### Opt ###
+
+Parser    > id/[a-z]+/ opt
+
+Input     > 
+Expect Ok > .
+
+Input     > abc
+Expect Ok > abc
+
+Input     > abc abc
+Expect Err
+> parse error: did not expect id
+>  --> repetition.tests.txt:1:5
+>   |
+> 1 |abc abc
+>   |    ^^^ unexpected
+>   |
+
+Parser     > id/[a-z]+/ opt opt
+Input      > abc
+Expect Err > ambiguous grammar: in id.opt().opt(), either id.opt().opt() or id.opt() could be empty
+
+### Many0 ###
+
+Parser    > id/[a-z]+/ many0
+
+Input     >
+Expect Ok > (many0 )
+
+Input     > abc
+Expect Ok > (many0 abc)
+
+Input     > abc def
+Expect Ok > (many0 abc def)
+
+Input     > abc def ghi
+Expect Ok > (many0 abc def ghi)
+
+Input     > !
+Expect Err
+> parse error: did not expect '!'
+>  --> repetition.tests.txt:1:1
+>   |
+> 1 |!
+>   |^ unexpected
+>   |
+
+Parser     > id/[a-z]+/ opt many0
+Input      > abc
+Expect Err > ambiguous grammar: in id.opt().many0(), either id.opt().many0() or id.opt() could be empty
+
+Parser     > id/[a-z]+/ many0 opt
+Input      > abc
+Expect Err > ambiguous grammar: in id.many0().opt(), either id.many0().opt() or id.many0() could be empty
+
+### Many1 ###
+
+Parser     > id/[a-z]+/ many1
+
+Input      >
+Expect Err
+> parse error: expected id but found end of file
+>  --> repetition.tests.txt:1:1
+>   |
+> 1 |
+>   |^ expected id
+>   |
+
+Input      > abc
+Expect Ok  > (many1 abc)
+
+Input      > abc def
+Expect Ok  > (many1 abc def)
+
+Parser     > id/[a-z]+/ many1 opt
+
+Input      >
+Expect Ok  > .
+
+Input      > abc def
+Expect Ok  > (many1 abc def)
+
+Parser     > id/[a-z]+/ many1 many1
+Expect Err > ambiguous grammar: in id.many1().many1(), token id could either continue id.many1() or start id.many1().many1()
+
+### Fold Many0 ###
+
+Parser    > id/[a-z]+/ fold_many0
+
+Input     >
+Expect Ok > (fold_many0 fold_base_case)
+
+Input     > abc
+Expect Ok > (fold_many0 fold_base_case abc)
+
+Input     > abc def
+Expect Ok > (fold_many0 fold_base_case abc def)
+
+Input     > abc def ghi
+Expect Ok > (fold_many0 fold_base_case abc def ghi)
+
+Input     > abc!
+Expect Err
+> parse error: did not expect '!'
+>  --> repetition.tests.txt:1:4
+>   |
+> 1 |abc!
+>   |   ^ unexpected
+>   |
+
+Parser     > id/[a-z]+/ fold_many0 opt
+Input      >
+Expect Err > ambiguous grammar: in id.fold_many0().opt(), either id.fold_many0().opt() or id.fold_many0() could be empty
+
+### Fold Many1 ###
+
+Parser     > ID/[A-Z]+/ id/[a-z]+/ fold_many1
+
+Input      >
+Expect Err
+> parse error: expected ID but found end of file
+>  --> repetition.tests.txt:1:1
+>   |
+> 1 |
+>   |^ expected ID
+>   |
+
+Input     > abc
+Expect Err
+> parse error: expected ID but found id
+>  --> repetition.tests.txt:1:1
+>   |
+> 1 |abc
+>   |^^^ expected ID
+>   |
+
+Input     > ABC def
+Expect Ok > (fold_many1 ABC def)
+
+Input     > ABC def ghi
+Expect Ok > (fold_many1 ABC def ghi)
+
+Input     > ABC DEF ghi
+Expect Err
+> parse error: did not expect ID
+>  --> repetition.tests.txt:1:5
+>   |
+> 1 |ABC DEF ghi
+>   |    ^^^ unexpected
+>   |
+
+Parser     > ID/[A-Z]+/ id/[a-z]+/ fold_many1 opt
+Input      >
+Expect Ok  > .
+
+### Many Sep0 ###
+
+Parser     > id/[a-z]+/ "," many_sep0
+
+Input      > 
+Expect Ok  > (many_sep0 )
+
+Input      > ,
+Expect Err
+> parse error: did not expect ','
+>  --> repetition.tests.txt:1:1
+>   |
+> 1 |,
+>   |^ unexpected
+>   |
+
+Input      > a
+Expect Ok  > (many_sep0 a)
+
+Input      > a,
+Expect Err
+> parse error: expected id but found end of file
+>  --> repetition.tests.txt:1:3
+>   |
+> 1 |a,
+>   |  ^ expected id
+>   |
+
+Input      > a, b
+Expect Ok  > (many_sep0 a b)
+
+Input      > a, b, c
+Expect Ok  > (many_sep0 a b c)
+
+### Many Sep1 ###
+
+Parser     > id/[a-z]+/ "," many_sep1
+
+Input      > 
+Expect Err
+> parse error: expected id but found end of file
+>  --> repetition.tests.txt:1:1
+>   |
+> 1 |
+>   |^ expected id
+>   |
+
+Input      > ,
+Expect Err
+> parse error: expected id but found ','
+>  --> repetition.tests.txt:1:1
+>   |
+> 1 |,
+>   |^ expected id
+>   |
+
+Input      > a
+Expect Ok  > (many_sep1 a)
+
+Input      > a,
+Expect Err
+> parse error: expected id but found end of file
+>  --> repetition.tests.txt:1:3
+>   |
+> 1 |a,
+>   |  ^ expected id
+>   |
+
+Input      > a, b
+Expect Ok  > (many_sep1 a b)
+
+Input      > a, b, c
+Expect Ok  > (many_sep1 a b c)

@@ -1,0 +1,74 @@
+# You'll notice that the behavior of these parsers is pretty strange!
+# They all take functions as arguments, and it's not easy to specify a function
+# in a textual test case like this, so the functions are all fixed by the test
+# case runner. See 'run_tests.rs' for the behavior.
+
+### Constant ###
+
+Parser    > id/[a-z]+/ constant
+Input     > abc
+Expect Ok > constant
+
+### Map ###
+
+Parser    > id/[a-z]+/ map
+Input     > abc
+Expect Ok > (map abc)
+
+Parser    > id/[a-z]+/ try_map
+Input     > gookd
+Expect Ok > (ok gookd)
+
+Input     > bad
+Expect Err
+> parse error: oops something went wrong: bad
+>  --> mapping.tests.txt:1:1
+>   |
+> 1 |bad
+>   |^^^ oops something went wrong: bad
+>   |
+
+### Span ###
+
+# span positions are 0-indexed
+Parser    > id/[a-z]+/ span
+Input     >   abc
+Expect Ok > (span abc 0:2-0:5)
+
+Parser    > id/[a-z]+/ try_span
+Input
+>
+>   gookd
+>
+Expect Ok > (ok gookd 1:2-1:7)
+
+Input     > bad
+Expect Err
+> parse error: oops something went wrong: bad 0:0-0:3
+>  --> mapping.tests.txt:1:1
+>   |
+> 1 |bad
+>   |^^^ oops something went wrong: bad 0:0-0:3
+>   |
+
+### MapSpan ###
+
+Parser    > id/[a-z]+/ map_span
+Input     >   abc
+Expect Ok > (map_span abc 0:2-0:5 abc)
+
+Parser    > id/[a-z]+/ try_map_span
+Input
+>
+>   gookd
+>
+Expect Ok > (ok gookd 1:2-1:7 gookd)
+
+Input     > bad
+Expect Err
+> parse error: oops something went wrong: bad 0:0-0:3 bad
+>  --> mapping.tests.txt:1:1
+>   |
+> 1 |bad
+>   |^^^ oops something went wrong: bad 0:0-0:3 bad
+>   |
