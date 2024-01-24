@@ -19,7 +19,13 @@
 // [ ] Hunt down remaining todos
 // [x] Delete hand-crafted combinators that really didn't need to be hand-crafted
 // [x] Extensive testing
-// [ ] Review docs, add example
+// [x] Review docs, add example
+// [ ] Better error messages: use information from higher in the stack.
+//     (Then check off of "Future Features" list.)
+// [ ] Error recover for multiple errors:
+//     - For lexing, scan ahead to next char that starts a lexeme
+//     - For parsing, have certain constructs like `many` discard & recover
+//     (Then check off of "Future Features" list.)
 
 // NOTE: Current time to parse dummy.json: 5.75 ms
 //       Most of this time is lexing! If this library is to be faster,
@@ -80,45 +86,129 @@
 //!     "ambiguous grammar: in number.opt().and(number), token number could either continue number.opt() or start number");
 //! ```
 //!
-//! ## Features
 //!
-//! - Guaranteed linear time parsing, due to `parse_ll1` checking that
-//!   your grammar is LL1. You won't find guaranteed linear time parsing in
-//!   any other (complete) Rust parser library.
-//!   [`nom`](https://docs.rs/nom/latest/nom/) and
-//!   [`parsell`](https://docs.rs/parsell/latest/parsell/) can take
-//!   exponential time to parse if they're given a poorly structured grammar.
-//! - Typed parser combinators, so that you build your parser in Rust code,
-//!   and it produces a result directly. You don't have to write separate
-//!   code to walk a parse tree like in [`pest`](https://pest.rs/).
-//! - Good error messages, with no effort required from you. This is due
-//!   to the fact that `parer_ll1` enforces that grammars are LL1 (so it
-//!   always knows exactly what's being parsed), and that under the hood
-//!   it lexes before it parses (so it knows what to point at if the next
-//!   token is unexpected).
-//! - Provides source locations (line, column, and UTF8-column).
-//! - Easier to use than `nom` or `pest`.
-//! - Runs on stable Rust.
+//! ## Overview
 //!
-//! ## Non-features
+//! This crate centers around the trait `Parser<T>` which represents a parser that,
+//! if successful, produces a value of type `T`. These parsers are combined together
+//! using _combinators_ to create larger parsers with different type parameters `T`.
 //!
-//! - Grammars that aren't LL1! (In the future I may add backtracking
-//!   versions of some of the combinators, which would allow parsing
-//!   non-LL1 grammars in exchange for losing the nice guarantees
-//!   the LL1 property gives you.)
-//! - Byte-level parsing. Use [`nom`](https://docs.rs/nom/latest/nom/)
-//!   instead.
-//! - Streaming parsing. Use [`nom`](https://docs.rs/nom/latest/nom/)
-//!   or [`parsell`](https://docs.rs/parsell/latest/parsell/) instead.
-//! - Extraordinary speed. Use [`nom`](https://docs.rs/nom/latest/nom/)
-//!   instead. A preliminary benchmark puts `parse_ll1` at ~half the speed
-//!   of `nom`, which is still very fast.
-//! - There's no separate grammar file, which some people like because
-//!   it's so declarative. Use [`pest`](https://pest.rs/) instead.
 //!
-//! ## Combinators
+//! ### Lexing
 //!
-//! Here's a reference table of all the parser combinator types.
+//! To begin, create a [`Grammar`] with `Grammar::with_whitesapce` to define your
+//! whitespace or `Grammar::new()` to use Unicode's whitespace definition.
+//!
+//! Once you have a `Grammar`, you can start to make parsers:
+//!
+//! - [`Grammar::string`] makes a `Parser<()>` that matches a literal string
+//!   and produces the value `()`.
+//! - [`Grammar::regex`] makes a `Parser<()>` that matches a regex and produces
+//!   the value `()`.
+//!
+//! These are the building blocks from which all other parsers will be built.
+//! They're called _tokens_.
+//!
+//! It's possible that multiple `string`s and `regex`s will match. For example:
+//!
+//! - If your parsing a language with addition `grammar.string("+")` and increment
+//! `grammar.string("++")`, then `++` could lex as either `+` or `++`.
+//! - As a more insidious example, if you're parsing a language with a keyword
+//! `grammar.string("struct")` and identifiers `grammar.regex("identifier", "[_a-zA-Z]+")`,
+//! then `struct` could lex as either the `string` or the `regex`.
+//!
+//! Ties like this are resolved by the following rules:
+//!
+//! 1. Longer matches win.
+//! 2. In case of tie, `string` beats `regex`.
+//! 3. If there's still a tie, the `string` or `regex` defined first wins.
+//!
+//! ### Parsing
+//!
+//! Larger parsers are built up from smaller parsers. For example,
+//! `grammar.regex("int", "0|[1-9][0-9]*")?` produces a parser that matches a
+//! single integer and produces `()`, which isn't very useful. The `try_span`
+//! combinator can be used to turn the numeral into an actual `i32`:
+//!
+//! ```
+//! # use parser_ll1::{Grammar, GrammarError, Parser};
+//! # use std::str::FromStr;
+//! # let mut grammar = Grammar::new();
+//! let int_parser = grammar.regex("int", "0|[1-9][0-9]*")?
+//!     .try_span(|span| i32::from_str(span.substr));
+//! # Ok::<(), GrammarError>(())
+//! ```
+//!
+//! (The [`Span`] struct contains the substring that was parsed, as well as
+//! the start and end line and column numbers.)
+//!
+//! If you then want to parse a sequence of integers separated by commas, you
+//! can combine the integer parser with a comma parser using the `many_sep1`
+//! combinator:
+//!
+//! ```
+//! # use parser_ll1::{Grammar, GrammarError, Parser};
+//! # use std::str::FromStr;
+//! # let mut grammar = Grammar::new();
+//! # let int_parser = grammar.regex("int", "0|[1-9][0-9]*")?
+//! #     .try_span(|span| i32::from_str(span.substr));
+//! let int_list_parser = int_parser.many_sep1(grammar.string(",")?);
+//! # Ok::<(), GrammarError>(())
+//! ```
+//!
+//! To see the docs for the combinators, take a look at:
+//!
+//! - [`Parser`]
+//! - [`tuple()`]
+//! - [`choice()`]
+//! - [`Recursive`]
+//!
+//! ### Compiling Parsers
+//!
+//! Parsers can't be run directly, you need to compile them first. This is as
+//! easy as:
+//!
+//! ```
+//! # use parser_ll1::{Grammar, GrammarError, Parser};
+//! # use std::str::FromStr;
+//! # let mut grammar = Grammar::new();
+//! # let int_parser = grammar.regex("int", "0|[1-9][0-9]*")?
+//! #     .try_span(|span| i32::from_str(span.substr));
+//! # let int_list_parser = int_parser.many_sep1(grammar.string(",")?);
+//! let parser = grammar.compile_parser(int_list_parser)?;
+//! # Ok::<(), GrammarError>(())
+//! ```
+//!
+//! If you need multiple entry points into your parser (perhaps you sometimes want
+//! to parse a full program, but sometimes want to only parse an expression),
+//! simply call `compile_parser` on multiple parsers.
+//!
+//! The compiled `parser` is invoked with `parser.parse(filename: &str, file_contents: &str)`.
+//! `filename` is used solely in error messages. `file_contents` is the actual input
+//! string to parse.
+//!
+//! ### LL1 Validation
+//!
+//! The call to `compile_parser` is when your parser will be checked for conformance
+//! with the LL1 criteria. If it isn't LL1, you'll get a [`GrammarError`].
+//! There are three rules for LL1 grammars that you must obey:
+//!
+//! - If you have a choice between multiple alternatives, they must all start
+//!   with distinct tokens. (If two of them start with the same token, then the
+//!   parser won't know which alternative to pick if it encounters that token.)
+//! - If you have a choice between multiple alternatives, at most one of those
+//!   alternatives can parse nothing. (If the parser sees that none of the
+//!   alternatives' start tokens match, it will pick the alternative that can
+//!   parse nothing. If there are multiple such alternatives, it won't know which
+//!   one to pick.)
+//! - You can't _first_ parse either a token T or nothing, and _then_ parse a
+//!   token T. (Otherwise, if the _first_ parser encounters T, it won't know
+//!   whether to parse it, or to parse nothing and leave the T for the second parser.)
+//!
+//!
+//! ## Reference
+//!
+//! Here's a quick reference table of the types of all the parser combinators.
 //!
 //! ```text
 //! COMBINATOR           OUTPUT-TYPE    NOTES

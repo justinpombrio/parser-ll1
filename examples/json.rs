@@ -119,7 +119,10 @@ fn make_json_parser() -> Result<impl CompiledParser<Json>, GrammarError> {
 fn main() {
     use std::io;
 
-    let parser = make_json_parser().unwrap();
+    let parser = match make_json_parser() {
+        Ok(parser) => parser,
+        Err(err) => panic!("{}", err),
+    };
     let input = io::read_to_string(io::stdin()).unwrap();
     match parser.parse("stdin", &input) {
         Err(err) => println!("{}", err),
